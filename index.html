@@ -21,7 +21,19 @@
                     <span class="text-xl font-bold tracking-tighter">YouTube Cam</span>
                 </div>
             </div>
-            <button onclick="toggleUpload(true)" class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="video"></i></button>
+            
+            <div class="flex-1 max-w-xl mx-4">
+                <div class="flex items-center bg-[#121212] border border-[#303030] rounded-full overflow-hidden">
+                    <input type="text" placeholder="Search" class="w-full bg-transparent px-4 py-2 outline-none text-sm">
+                    <button class="px-4 py-2 bg-[#272727] border-l border-[#303030]"><i data-lucide="search" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="toggleUpload(true)" class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="video"></i></button>
+                <button class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="bell"></i></button>
+                <button class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="user-circle"></i></button>
+            </div>
         </header>
 
         <!-- Main -->
