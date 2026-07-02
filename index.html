@@ -22,17 +22,9 @@
                 </div>
             </div>
             
-            <div class="flex-1 max-w-xl mx-4">
-                <div class="flex items-center bg-[#121212] border border-[#303030] rounded-full overflow-hidden">
-                    <input type="text" placeholder="Search" class="w-full bg-transparent px-4 py-2 outline-none text-sm">
-                    <button class="px-4 py-2 bg-[#272727] border-l border-[#303030]"><i data-lucide="search" class="w-4 h-4"></i></button>
-                </div>
-            </div>
-
             <div class="flex items-center gap-3">
                 <button onclick="toggleUpload(true)" class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="video"></i></button>
                 <button class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="bell"></i></button>
-                <button class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="user-circle"></i></button>
             </div>
         </header>
 
@@ -61,17 +53,18 @@
     <input type="file" id="file-input" accept="video/*" class="hidden" onchange="handleFileSelect(event)">
 
     <script>
-        let videos = JSON.parse(localStorage.getItem('yt-cam-videos-v5') || '[]');
+        let videos = JSON.parse(localStorage.getItem('yt-cam-data-v6') || '[]');
         let currentView = 'home';
-        let selectedVideo = null;
-        let tempFile = null;
 
-        function saveVideos() { localStorage.setItem('yt-cam-videos-v5', JSON.stringify(videos)); }
+        function saveVideos() { localStorage.setItem('yt-cam-data-v6', JSON.stringify(videos)); }
 
         function toggleUpload(show) { document.getElementById('upload-modal').classList.toggle('hidden', !show); }
 
         function handleFileSelect(e) {
-            tempFile = e.target.files[0];
+            const tempFile = e.target.files[0];
+            if(!tempFile) return;
+            // Store file reference in a temporary global to use on save
+            window.pendingFile = tempFile;
             document.getElementById('upload-step-select').classList.add('hidden');
             document.getElementById('upload-step-details').classList.remove('hidden');
             document.getElementById('modal-title').innerText = 'Video Details';
@@ -79,18 +72,46 @@
 
         function finalizeUpload() {
             const title = document.getElementById('video-title').value;
-            if(tempFile && title) {
-                const newVideo = { id: Date.now(), title, thumbnail: document.getElementById('thumbnail-url').value, localUrl: URL.createObjectURL(tempFile) };
+            if(window.pendingFile && title) {
+                const newVideo = { 
+                    id: Date.now(), 
+                    title, 
+                    thumbnail: document.getElementById('thumbnail-url').value, 
+                    localUrl: URL.createObjectURL(window.pendingFile),
+                    views: 0,
+                    likes: 0,
+                    comments: []
+                };
                 videos.unshift(newVideo);
                 saveVideos();
                 toggleUpload(false);
                 renderView('home');
+                window.pendingFile = null;
+            }
+        }
+
+        function toggleLike(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if(video) {
+                video.likes++;
+                saveVideos();
+                renderView('watch', video);
+            }
+        }
+
+        function addComment(videoId) {
+            const input = document.getElementById('comment-input');
+            if(!input.value.trim()) return;
+            const video = videos.find(v => v.id === videoId);
+            if(video) {
+                video.comments.unshift(input.value);
+                saveVideos();
+                renderView('watch', video);
             }
         }
 
         function renderView(view, video = null) {
             currentView = view;
-            selectedVideo = video;
             const main = document.getElementById('main-content');
             
             if(view === 'home') {
@@ -98,8 +119,8 @@
                     main.innerHTML = `<div class="flex flex-col items-center justify-center h-full gap-4 text-center">
                         <i data-lucide="film" class="w-16 h-16 text-[#303030]"></i>
                         <h2 class="text-2xl font-bold">No videos yet</h2>
-                        <p class="text-gray-400">Your uploaded videos will appear here. Click the video icon to upload them!</p>
-                        <button onclick="toggleUpload(true)" class="bg-red-600 px-8 py-3 rounded-full font-bold">Upload First Video</button>
+                        <p class="text-gray-400">Click the upload icon in the header to add your first video!</p>
+                        <button onclick="toggleUpload(true)" class="bg-red-600 px-8 py-3 rounded-full font-bold">Upload Video</button>
                     </div>`;
                 } else {
                     main.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">${videos.map(v => `
@@ -108,21 +129,41 @@
                                 ${v.thumbnail ? `<img src="${v.thumbnail}" class="w-full h-full object-cover">` : '<div class="flex items-center justify-center h-full"><i data-lucide="film"></i></div>'}
                             </div>
                             <h3 class="font-semibold text-sm mt-2">${v.title}</h3>
+                            <p class="text-xs text-gray-400">${v.views} views</p>
                         </div>`).join('')}</div>`;
                 }
             } else {
-                main.innerHTML = `<div class="max-w-5xl mx-auto">
+                // Increment view count on watch
+                video.views++;
+                saveVideos();
+                
+                main.innerHTML = `<div class="max-w-4xl mx-auto">
                     <div class="aspect-video bg-black rounded-xl overflow-hidden mb-6">
-                        <video controls class="w-full h-full" src="${selectedVideo.localUrl}"></video>
+                        <video controls class="w-full h-full" src="${video.localUrl}"></video>
                     </div>
-                    <h1 class="text-2xl font-bold">${selectedVideo.title}</h1>
-                    <button onclick="renderView('home')" class="mt-4 px-4 py-2 bg-[#272727] rounded-full">Back Home</button>
+                    <h1 class="text-2xl font-bold mb-2">${video.title}</h1>
+                    <div class="flex gap-4 mb-6 text-sm text-gray-400">
+                        <span>${video.views} views</span>
+                        <button onclick="toggleLike(${video.id})" class="flex items-center gap-1 hover:text-white"><i data-lucide="thumbs-up"></i> ${video.likes}</button>
+                        <button class="flex items-center gap-1 hover:text-white"><i data-lucide="user-plus"></i> Subscribe</button>
+                    </div>
+                    <div class="border-t border-[#303030] pt-6">
+                        <h3 class="font-bold mb-4">Comments (${video.comments.length})</h3>
+                        <div class="flex gap-2 mb-6">
+                            <input id="comment-input" type="text" placeholder="Add a comment..." class="flex-1 bg-[#121212] border border-[#303030] p-2 rounded">
+                            <button onclick="addComment(${video.id})" class="bg-[#272727] px-4 rounded hover:bg-[#3d3d3d]">Post</button>
+                        </div>
+                        <div class="space-y-4">
+                            ${video.comments.map(c => `<div class="bg-[#1e1e1e] p-3 rounded text-sm">${c}</div>`).join('')}
+                        </div>
+                    </div>
+                    <button onclick="renderView('home')" class="mt-8 px-4 py-2 bg-[#272727] rounded-full">Back Home</button>
                 </div>`;
             }
             lucide.createIcons();
         }
 
-        renderView('home');
+        window.onload = () => renderView('home');
     </script>
 </body>
 </html>
