@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Cam</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background-color: #0f0f0f; color: white; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 bg-[#0f0f0f] flex items-center justify-between px-4 h-14 border-b border-[#272727]">
+            <div class="flex items-center gap-4">
+                <i data-lucide="menu" class="cursor-pointer"></i>
+                <div class="flex items-center gap-1 cursor-pointer" onclick="renderView('home')">
+                    <div class="bg-red-600 rounded-lg p-1"><i data-lucide="film" class="text-white"></i></div>
+                    <span class="text-xl font-bold tracking-tighter">YouTube Cam</span>
+                </div>
+            </div>
+            <button onclick="toggleUpload(true)" class="p-2 hover:bg-[#272727] rounded-full"><i data-lucide="video"></i></button>
+        </header>
+
+        <!-- Main -->
+        <main id="main-content" class="flex-1 overflow-y-auto p-6"></main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+        <div class="bg-[#1e1e1e] w-full max-w-md p-6 rounded-xl relative">
+            <button onclick="toggleUpload(false)" class="absolute top-4 right-4"><i data-lucide="x"></i></button>
+            <h2 id="modal-title" class="text-xl font-bold mb-6">Select Video</h2>
+            <div id="upload-step-select">
+                <div onclick="document.getElementById('file-input').click()" class="border-2 border-dashed border-[#303030] py-12 flex flex-col items-center gap-4 cursor-pointer hover:border-red-600">
+                    <i data-lucide="upload" class="text-gray-500 w-12 h-12"></i>
+                    <p>Click to select a local video file</p>
+                </div>
+            </div>
+            <div id="upload-step-details" class="hidden flex flex-col gap-4">
+                <input type="text" id="video-title" placeholder="Video Title" class="w-full bg-[#121212] border border-[#303030] p-3 rounded">
+                <input type="text" id="thumbnail-url" placeholder="Thumbnail URL" class="w-full bg-[#121212] border border-[#303030] p-3 rounded">
+                <button onclick="finalizeUpload()" class="w-full bg-red-600 py-3 rounded font-bold hover:bg-red-700">Upload</button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="file-input" accept="video/*" class="hidden" onchange="handleFileSelect(event)">
+
+    <script>
+        let videos = JSON.parse(localStorage.getItem('yt-cam-videos-v5') || '[]');
+        let currentView = 'home';
+        let selectedVideo = null;
+        let tempFile = null;
+
+        function saveVideos() { localStorage.setItem('yt-cam-videos-v5', JSON.stringify(videos)); }
+
+        function toggleUpload(show) { document.getElementById('upload-modal').classList.toggle('hidden', !show); }
+
+        function handleFileSelect(e) {
+            tempFile = e.target.files[0];
+            document.getElementById('upload-step-select').classList.add('hidden');
+            document.getElementById('upload-step-details').classList.remove('hidden');
+            document.getElementById('modal-title').innerText = 'Video Details';
+        }
+
+        function finalizeUpload() {
+            const title = document.getElementById('video-title').value;
+            if(tempFile && title) {
+                const newVideo = { id: Date.now(), title, thumbnail: document.getElementById('thumbnail-url').value, localUrl: URL.createObjectURL(tempFile) };
+                videos.unshift(newVideo);
+                saveVideos();
+                toggleUpload(false);
+                renderView('home');
+            }
+        }
+
+        function renderView(view, video = null) {
+            currentView = view;
+            selectedVideo = video;
+            const main = document.getElementById('main-content');
+            
+            if(view === 'home') {
+                if(videos.length === 0) {
+                    main.innerHTML = `<div class="flex flex-col items-center justify-center h-full gap-4 text-center">
+                        <i data-lucide="film" class="w-16 h-16 text-[#303030]"></i>
+                        <h2 class="text-2xl font-bold">No videos yet</h2>
+                        <button onclick="toggleUpload(true)" class="bg-red-600 px-8 py-3 rounded-full font-bold">Upload First Video</button>
+                    </div>`;
+                } else {
+                    main.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">${videos.map(v => `
+                        <div class="cursor-pointer" onclick='renderView("watch", ${JSON.stringify(v)})'>
+                            <div class="w-full aspect-video bg-[#272727] rounded-xl overflow-hidden">
+                                ${v.thumbnail ? `<img src="${v.thumbnail}" class="w-full h-full object-cover">` : '<div class="flex items-center justify-center h-full"><i data-lucide="film"></i></div>'}
+                            </div>
+                            <h3 class="font-semibold text-sm mt-2">${v.title}</h3>
+                        </div>`).join('')}</div>`;
+                }
+            } else {
+                main.innerHTML = `<div class="max-w-5xl mx-auto">
+                    <div class="aspect-video bg-black rounded-xl overflow-hidden mb-6">
+                        <video controls class="w-full h-full" src="${selectedVideo.localUrl}"></video>
+                    </div>
+                    <h1 class="text-2xl font-bold">${selectedVideo.title}</h1>
+                    <button onclick="renderView('home')" class="mt-4 px-4 py-2 bg-[#272727] rounded-full">Back Home</button>
+                </div>`;
+            }
+            lucide.createIcons();
+        }
+
+        renderView('home');
+    </script>
+</body>
+</html>
